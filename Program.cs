@@ -1,7 +1,9 @@
+using InTheHand.Net;
+using InTheHand.Net.Bluetooth;
 using InTheHand.Net.Sockets;
 
 // Both sides must use the same service GUID.
-var serviceId = new Guid("b3f5a1c0-1111-2222-3333-444455556666");
+var serviceId = new Guid("00001101-0000-1000-8000-00805F9B34FB");
 
 Console.Write("[H]ost or [J]oin? ");
 var choice = (Console.ReadLine() ?? "").Trim().ToLowerInvariant();
@@ -12,6 +14,10 @@ if (choice.Equals("h", StringComparison.CurrentCultureIgnoreCase))
 {
     // HOST: wait for one client
     var listener = new BluetoothListener(serviceId);
+    var radio = BluetoothRadio.Default;
+    Console.WriteLine($"Host name: {radio.Name ?? "Unknown"}");
+    Console.WriteLine($"Host address: {radio.LocalAddress}");
+    
     listener.Start();
     Console.WriteLine("Waiting for someone to connect...");
     var client = listener.AcceptBluetoothClient(); // blocks until a client connects
@@ -22,8 +28,9 @@ else if(choice.Equals("j", StringComparison.CurrentCultureIgnoreCase))
 {
     // CLIENT: find the host and connect
     var bt = new BluetoothClient();
+    
     Console.WriteLine("Scanning for nearby devices...");
-    var devices = bt.DiscoverDevices();
+    var devices = bt.PairedDevices.Concat(bt.DiscoverDevices()).ToList();
 
     for (int i = 0; i < devices.Count; i++)
         Console.WriteLine($"[{i}] {devices.ElementAt(i).DeviceName} ({devices.ElementAt(i).DeviceAddress})");
@@ -36,7 +43,8 @@ else if(choice.Equals("j", StringComparison.CurrentCultureIgnoreCase))
         return;
     }
 
-    bt.Connect(devices.ElementAt(pick).DeviceAddress, serviceId);
+    var ep = new BluetoothEndPoint(devices.ElementAt(pick).DeviceAddress, BluetoothService.SerialPort);
+    bt.Connect(ep);
     stream = bt.GetStream();
     Console.WriteLine("Connected!");
 }
