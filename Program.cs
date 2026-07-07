@@ -30,7 +30,7 @@ else if(choice.Equals("j", StringComparison.CurrentCultureIgnoreCase))
     var bt = new BluetoothClient();
     
     Console.WriteLine("Scanning for nearby devices...");
-    var devices = bt.PairedDevices.Concat(bt.DiscoverDevices()).ToList();
+    var devices = bt.PairedDevices.Concat(bt.DiscoverDevices()) .DistinctBy(d => d.DeviceAddress).ToList();
 
     for (int i = 0; i < devices.Count; i++)
         Console.WriteLine($"[{i}] {devices.ElementAt(i).DeviceName} ({devices.ElementAt(i).DeviceAddress})");
@@ -43,7 +43,7 @@ else if(choice.Equals("j", StringComparison.CurrentCultureIgnoreCase))
         return;
     }
 
-    var ep = new BluetoothEndPoint(devices.ElementAt(pick).DeviceAddress, BluetoothService.SerialPort);
+    var ep = new BluetoothEndPoint(devices.ElementAt(pick).DeviceAddress, serviceId);
     bt.Connect(ep);
     stream = bt.GetStream();
     Console.WriteLine("Connected!");
