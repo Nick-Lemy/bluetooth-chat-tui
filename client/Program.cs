@@ -14,7 +14,13 @@ if (!ChatService.TryParseServerAddress(address.Length == 0 ? "localhost" : addre
     return;
 }
 
-await using IChatService chat = new ChatService(myName);
+await using IChatService chat = new ChatService();
+chat.UserName = myName;
+
+Console.WriteLine();
+Console.WriteLine("=== Rooms ===");
+var selectedRoomId = SelectRoom(chat);
+
 try
 {
     await chat.ConnectAsync(host, port);
@@ -32,12 +38,56 @@ using var window = new Window() {
     Title = "Bankai Chat"
  };
 
+var currentRoom = chat.GetRoomById(selectedRoomId);
+
+// Left sidebar: the rooms this user is a member of (i.e. can read from). The
+// room you're currently viewing is marked with ">"; private rooms with "*".
+var roomsPanel = new FrameView()
+{
+    Title = "My Rooms",
+    X = 0, Y = 0,
+    Width = 24,
+    Height = Dim.Fill(),
+};
+var roomsList = new Label()
+{
+    X = 0, Y = 0,
+    Width = Dim.Fill(),
+    Height = Dim.Auto(),
+};
+void RefreshRoomsList()
+{
+    var mine = chat.Rooms.Where(r => r.Members.Contains(myName));
+    roomsList.Text = string.Join("\n", mine.Select(r =>
+        (r.Id == selectedRoomId ? "> " : "  ") + r.Name + (r.Code is null ? "" : " *")));
+}
+RefreshRoomsList();
+roomsPanel.Add(roomsList);
+
+// Top frame: shows which room you're in and who's in it.
+var roomPanel = new FrameView()
+{
+    Title = "Room",
+    X = Pos.Right(roomsPanel), Y = 0,
+    Width = Dim.Fill(),
+    Height = 4,
+};
+var roomInfo = new Label()
+{
+    X = 0, Y = 0,
+    Width = Dim.Fill(),
+    Height = Dim.Auto(),
+    Text = $"{currentRoom.Name}{(currentRoom.Code is null ? "" : " [private]")}: {currentRoom.Description}\n"
+         + $"Members: {string.Join(", ", currentRoom.Members)}",
+};
+roomPanel.Add(roomInfo);
+
 var messagesPanel = new FrameView()
 {
     Title = "Messages",
-    X = 0, Y = 0,
+    X = Pos.Right(roomsPanel), Y = Pos.Bottom(roomPanel),
     Width = Dim.Fill(),
-    Height = Dim.Percent(85),
+    Height = Dim.Fill(3),   // fill the space between the room frame and the input frame
 };
 messagesPanel.VerticalScrollBar.Visible = true;
 
@@ -65,7 +115,7 @@ void AddMessage(string line)
 var inputPanel = new FrameView()
 {
     Title = "Type a message (Enter to send)",
-    X = 0, Y = Pos.Bottom(messagesPanel),
+    X = Pos.Right(roomsPanel), Y = Pos.Bottom(messagesPanel),
     Width = Dim.Fill(),
     Height = Dim.Fill(),
 };
@@ -77,9 +127,16 @@ var textField = new TextField()
 };
 inputPanel.Add(textField);
 
-window.Add(messagesPanel, inputPanel);
+window.Add(roomsPanel, roomPanel, messagesPanel, inputPanel);
 
-chat.MessageReceived += msg => app.Invoke(() => AddMessage($"{msg.Sender}: {msg.Message}"));
+// Only show messages addressed to the room we're currently in — a user should
+// never see traffic from other rooms. (See note below: real isolation must also
+// happen on the server; this is the client-side half.)
+chat.MessageReceived += msg => app.Invoke(() =>
+{
+    if (msg.RoomId == selectedRoomId)
+        AddMessage($"{msg.Sender}: {msg.Text}");
+});
 
 chat.Disconnected += () => app.Invoke(() => AddMessage("* Disconnected from server."));
 
@@ -91,8 +148,97 @@ textField.Accepting += async (sender, e) =>
     {
         AddMessage($"{myName}: {text}");
         textField.Text = string.Empty;
-        await chat.SendAsync(text);
+        await chat.SendAsync(text, selectedRoomId);
     }
 };
 
 app.Run(window);
+
+Guid SelectRoom(IChatService service)
+{
+    while (true)
+    {
+        Console.WriteLine("\nAvailable rooms:");
+        foreach (var room in service.Rooms)
+        {
+            var visibility = room.Code is null ? "" : " [private]";
+            Console.WriteLine($"  - {room.Name}{visibility}: {room.Description}");
+        }
+
+        Console.Write("\n(J)oin an existing room or (C)reate a new one? [J]: ");
+        var choice = (Console.ReadLine() ?? "").Trim().ToLowerInvariant();
+
+        if (choice is "c" or "create")
+        {
+            Console.Write("New room name: ");
+            var name = (Console.ReadLine() ?? "").Trim();
+            if (name.Length == 0)
+            {
+                Console.WriteLine("Room name cannot be empty.");
+                continue;
+            }
+            if (service.Rooms.Any(r => r.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            {
+                Console.WriteLine($"A room named '{name}' already exists.");
+                continue;
+            }
+
+            Console.Write("Description: ");
+            var description = (Console.ReadLine() ?? "").Trim();
+            if (description.Length == 0) description = "No description.";
+
+            Console.Write("Enter a 4-digit code for private room (or leave blank for public): ");
+            var codeInput = (Console.ReadLine() ?? "").Trim();
+            int? code = null;
+            if (!string.IsNullOrWhiteSpace(codeInput))
+            {
+                if (!int.TryParse(codeInput, out int parsedCodeCreate))
+                {
+                    Console.WriteLine("Invalid code. Please enter a 4-digit integer between 1000 and 9999. or leave blank for public.");
+                    continue;
+                }
+                code = parsedCodeCreate;
+            }
+
+            service.CreateRoom(name, description, code);
+            var newRoomId = service.GetRoomIdByName(name);
+            service.JoinRoom(newRoomId, service.UserName, code);
+            Console.WriteLine($"Created and joined '{name}'.");
+            return newRoomId;
+        }
+
+        // Default: join.
+        Console.Write("Room name to join [General]: ");
+        var joinName = (Console.ReadLine() ?? "").Trim();
+        if (joinName.Length == 0) joinName = "General";
+
+        Console.Write("Enter room code (if private) or leave blank: ");
+        var inputCode = (Console.ReadLine() ?? "").Trim();
+        var isParsed = int.TryParse(inputCode, out var parsedCode);
+        if(inputCode != "" && !isParsed) { 
+            throw new ArgumentException("Invalid code. Please enter a valid integer code for the room.");
+        }
+
+        var target = service.Rooms.FirstOrDefault(r => r.Name.Equals(joinName, StringComparison.OrdinalIgnoreCase));
+        if (target is null)
+        {
+            Console.WriteLine($"No room named '{joinName}'. Try again or create it.");
+            continue;
+        }
+
+        if (target.Code is not null)
+        {
+            Console.Write("This room is private. Enter its code: ");
+            var entered = (Console.ReadLine() ?? "").Trim();
+            if (!int.TryParse(entered, out var enteredCode) || enteredCode != target.Code)
+            {
+                Console.WriteLine("Incorrect code.");
+                continue;
+            }
+        }
+
+        service.JoinRoom(target.Id, service.UserName, parsedCode);
+        Console.WriteLine($"Joined '{target.Name}'.");
+        return target.Id;
+    }
+}
