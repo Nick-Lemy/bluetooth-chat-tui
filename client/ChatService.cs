@@ -3,9 +3,6 @@ using System.Text.Json;
 using Chat.Models;
 
 namespace Chat;
-
-// TCP implementation of IChatService. Owns the socket, runs a background
-// receive loop, and surfaces incoming messages / disconnects as events.
 public sealed class ChatService : IChatService
 {
     public const int DefaultPort = 11_000;
@@ -31,7 +28,6 @@ public sealed class ChatService : IChatService
         var reader = new StreamReader(stream);
         _writer = new StreamWriter(stream) { AutoFlush = true };
 
-        // Fire-and-forget receive loop; it raises events until the socket closes.
         _ = ReceiveLoopAsync(reader);
     }
 
@@ -58,7 +54,6 @@ public sealed class ChatService : IChatService
         }
         catch (IOException)
         {
-            // Connection dropped; handled as a normal disconnect below.
         }
         finally
         {
@@ -66,7 +61,6 @@ public sealed class ChatService : IChatService
         }
     }
 
-    // Parses "host" or "host:port" into its parts, defaulting the port.
     public static bool TryParseServerAddress(string value, out string host, out int port)
     {
         host = value.Trim();

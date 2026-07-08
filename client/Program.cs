@@ -4,7 +4,6 @@ using Terminal.Gui.Views;
 using Chat;
 using Terminal.Gui.Text;
 
-// --- Gather connection info before starting the TUI (plain console) ---
 Console.Write("Enter your name: ");
 var myName = Console.ReadLine() ?? "Anonymous";
 
@@ -16,7 +15,6 @@ if (!ChatService.TryParseServerAddress(address.Length == 0 ? "localhost" : addre
     return;
 }
 
-// --- Create the service and connect ---
 await using IChatService chat = new ChatService(myName);
 try
 {
@@ -28,7 +26,6 @@ catch (Exception ex)
     return;
 }
 
-// --- Build the TUI ---
 using var app = Application.Create();
 app.Init();
 
@@ -43,10 +40,6 @@ var messagesPanel = new FrameView()
     Width = Dim.Fill(),
     Height = Dim.Percent(85),
 };
-
-// The chat history is one running block of text (a Label sized to its content)
-// living inside the scrollable messagesPanel. New lines are appended at the
-// bottom; the panel scrolls so older messages move up and out of view.
 messagesPanel.VerticalScrollBar.Visible = true;
 
 var messages = new Label()
@@ -54,20 +47,17 @@ var messages = new Label()
     Text = "",
     X = 0, Y = 0,
     Width = Dim.Fill(),
-    Height = Dim.Auto(),   // grows with the text so all lines exist to scroll through
+    Height = Dim.Auto(),
 };
 messagesPanel.Add(messages);
 
 var lineCount = 0;
 
-// Appends a line at the bottom and scrolls the panel to keep it in view.
 void AddMessage(string line)
 {
     messages.Text += messages.Text.Length == 0 ? line : "\n" + line;
     lineCount++;
 
-    // Tell the panel how tall its scrollable content is, then move the viewport
-    // to the bottom so the newest line is visible.
     messagesPanel.SetContentHeight(lineCount);
     var viewportHeight = messagesPanel.Viewport.Height;
     messagesPanel.Viewport = messagesPanel.Viewport with { Y = Math.Max(0, lineCount - viewportHeight) };
@@ -100,7 +90,7 @@ textField.Accepting += async (sender, e) =>
     var text = textField.Text;
     if (!string.IsNullOrWhiteSpace(text))
     {
-        AddMessage($"{myName}: {text}");   // echo our own line locally
+        AddMessage($"{myName}: {text}");
         textField.Text = string.Empty;
         await chat.SendAsync(text);
     }
