@@ -64,7 +64,7 @@ public static class Server
         lock (WritersLock)
         {
             foreach (var w in Writers)
-            {                
+            {
                 if (w != except) _ = w.WriteLineAsync(message);
             }
         }
