@@ -10,7 +10,7 @@ A colorful terminal chat app with rooms. Self hosted server, cross platform TUI 
 ![Platforms](https://img.shields.io/badge/platforms-Linux%20|%20macOS%20|%20Windows-blue)
 ![C#](https://img.shields.io/badge/C%23-239120?logo=csharp&logoColor=white)
 
-<a href="https://asciinema.org/a/sAJaqV95HSsXbL0Y" target="_blank"><img src="https://asciinema.org/a/sAJaqV95HSsXbL0Y.svg" alt="Demo" width="900" /></a>
+<img src="assets/demo.gif" alt="Demo" width="900" />
 
 </div>
 
