@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: write
@@ -35,7 +35,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: "10.0.x"
 
       - name: Publish client (self-contained, single file)
         run: |
@@ -63,5 +63,5 @@ jobs:
       - name: Upload to the GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: bankai-chat-${{ matrix.rid }}.*
+          files: hollow-chat-tui-${{ matrix.rid }}.*
           generate_release_notes: true
