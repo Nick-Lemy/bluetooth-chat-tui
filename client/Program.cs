@@ -226,17 +226,6 @@ Guid SelectRoom(IChatService service)
             continue;
         }
 
-        if (target.Code is not null)
-        {
-            Console.Write("This room is private. Enter its code: ");
-            var entered = (Console.ReadLine() ?? "").Trim();
-            if (!int.TryParse(entered, out var enteredCode) || enteredCode != target.Code)
-            {
-                Console.WriteLine("Incorrect code.");
-                continue;
-            }
-        }
-
         service.JoinRoom(target.Id, service.UserName, parsedCode);
         Console.WriteLine($"Joined '{target.Name}'.");
         return target.Id;

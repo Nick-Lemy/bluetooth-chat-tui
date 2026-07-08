@@ -11,7 +11,14 @@ public sealed class ChatService : IChatService
         new()
         {
             Name = "General",
-            Description = "The default room for all users."
+            Description = "The default room for all users.",
+            Members = ["Nick", "CR7", "Bob"]
+        },
+        new()
+        {
+            Name = "Bros",
+            Description = "A private room for bros only.",
+            Code = 1234
         }
     ];
     private TcpClient? _client;
