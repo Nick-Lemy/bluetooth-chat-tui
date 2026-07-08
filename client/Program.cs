@@ -37,7 +37,7 @@ using var app = Application.Create();
 app.Init();
 
 using var window = new Window() {
-    Title = "Bankai Chat"
+    Title = "Hollow Chat"
  };
 
 var currentRoom = chat.GetRoomById(selectedRoomId);
