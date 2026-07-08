@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/publish/
+dist/
+.git/
+.github/
+.vs/
+.vscode/
+client/
+*.user
