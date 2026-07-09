@@ -35,11 +35,29 @@ public sealed class MessageView
 
     public View View => _panel;
 
+    public string Title
+    {
+        get => _panel.Title;
+        set => _panel.Title = value;
+    }
+
     public void Append(string line)
     {
         _lines.Text += _lines.Text.Length == 0 ? line : "\n" + line;
         _lineCount++;
+        ScrollToBottom();
+    }
 
+    public void SetLines(IEnumerable<string> lines)
+    {
+        var all = lines.ToArray();
+        _lines.Text = string.Join("\n", all);
+        _lineCount = all.Length;
+        ScrollToBottom();
+    }
+
+    private void ScrollToBottom()
+    {
         _panel.SetContentHeight(_lineCount);
         var viewportHeight = _panel.Viewport.Height;
         _panel.Viewport = _panel.Viewport with { Y = Math.Max(0, _lineCount - viewportHeight) };

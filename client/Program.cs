@@ -1,53 +1,65 @@
 using Terminal.Gui.App;
-using Chat.Cli;
+using Terminal.Gui.Views;
 using Chat.Models;
 using Chat.Services;
 using Chat.Ui;
 
-Console.Write("Enter your name: ");
-var nameInput = (Console.ReadLine() ?? "").Trim();
-var myName = nameInput.Length == 0 ? "Anonymous" : nameInput;
-
-Console.Write("Enter server address (host or host:port) [localhost]: ");
-var address = (Console.ReadLine() ?? "").Trim();
-if (!ServerAddress.TryParse(address.Length == 0 ? "localhost" : address, out var host, out var port))
-{
-    Console.WriteLine("Invalid server address.");
-    return;
-}
-
-await using IChatService chat = new ChatService();
-chat.UserName = myName;
-
-try
-{
-    await chat.ConnectAsync(host, port);
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"Could not connect: {ex.Message}");
-    return;
-}
-
-Console.WriteLine();
-Console.WriteLine("=== Rooms ===");
-
-RoomInfo room;
-string[] members;
-try
-{
-    (room, members) = await RoomSelector.SelectAsync(chat);
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"Could not join a room: {ex.Message}");
-    return;
-}
-
-var rooms = await chat.GetRoomsAsync();
-
 using var app = Application.Create();
 app.Init();
 
-using var window = new ChatWindow(app, chat, room, members, rooms);
-window.Run();
+var chat = new ChatService();
+try
+{
+    var session = Connect(app, chat);
+    if (session is null) return;
+
+    var (rooms, room, members) = session.Value;
+    using var window = new ChatWindow(app, chat, rooms, room, members);
+    window.Run();
+}
+finally
+{
+    chat.DisposeAsync().GetAwaiter().GetResult();
+}
+
+static (RoomInfo[] Rooms, RoomInfo Room, string[] Members)? Connect(IApplication app, IChatService chat)
+{
+    var name = string.Empty;
+    var address = "localhost";
+
+    while (true)
+    {
+        var login = LoginDialog.Show(app, name, address);
+        if (login is null) return null;
+
+        (name, address) = login.Value;
+
+        if (!ServerAddress.TryParse(address, out var host, out var port))
+        {
+            MessageBox.ErrorQuery(app, "Invalid address", "Enter a host or host:port.", "OK");
+            continue;
+        }
+
+        try
+        {
+            chat.UserName = name;
+            chat.ConnectAsync(host, port).GetAwaiter().GetResult();
+
+            var rooms = chat.GetRoomsAsync().GetAwaiter().GetResult();
+            if (rooms.Length == 0)
+            {
+                MessageBox.ErrorQuery(app, "No rooms", "The server has no rooms.", "OK");
+                return null;
+            }
+
+            var initial = rooms.FirstOrDefault(r => !r.IsPrivate) ?? rooms[0];
+            var joined = chat.JoinRoomAsync(initial.Id, null).GetAwaiter().GetResult();
+
+            return (rooms, joined.Room, joined.Members);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.ErrorQuery(app, "Cannot connect", ex.Message, "OK");
+        }
+    }
+}
